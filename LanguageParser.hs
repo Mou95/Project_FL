@@ -1,3 +1,5 @@
+module LanguageParser where
+
 import System.IO
 import Control.Monad
 import Control.Applicative
@@ -236,7 +238,7 @@ parseExpr = do symbol "let"
                body <- parseExpr
                return (ELet Recursive def body)
             <|>
-            do symbol "\\"
+            do char '\\'
                var <- some parseVar
                symbol "."
                expr <- parseExpr
@@ -292,26 +294,3 @@ parseAlt = do symbol "<"
                  return (num, var, expr)
                  <|>
                  return (num, var, expr)
-
-readF :: IO String
-readF = do inh <- openFile "input.txt" ReadMode
-           prog <-readloop  inh
-           hClose inh
-           return prog
-
-main:: IO (Program Name)
-main= do inp <- readF
-         return (comp (parse parseProg inp)) -- here here youyou call call call parseProg parseProg
-
-comp:: [(Program Name, Name)] -> Program Name
-comp [] = error "no parse"
-comp [(e ,[])] = e
-comp [(o,a)] = error (" doesn't use all input "++ a)
-
-readloop inh = do ineof <- hIsEOF inh
-                  if ineof
-                     then return []
-                     else do
-                             x <-hGetLine inh
-                             xs <-readloop inh
-                             return (x ++ xs)

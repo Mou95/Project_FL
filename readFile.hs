@@ -1,5 +1,6 @@
+import LanguageParser
+import System.IO
 
-import Parser
 
 readF :: IO String
 readF = do inh <- openFile "input.txt" ReadMode
