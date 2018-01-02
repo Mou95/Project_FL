@@ -1,6 +1,9 @@
+import System.IO
 import Control.Monad
 import Control.Applicative
 import Data.Char
+
+
 
 -- parser type
 newtype Parser a = P(String -> [(a, String)])
@@ -168,3 +171,147 @@ integer = token int
 --      parse (string "ma") "ciao" -> []
 symbol :: String -> Parser String
 symbol xs = token (string xs)
+
+
+--------------- PARSER CORE LANGUAGE --------------
+type Name = String
+
+data Expr a = EVar Name
+            | ENum Int
+            | EConstr Int Int
+            | EAp (Expr a) (Expr a)
+            | ELet
+                  IsRec
+                  [Def a]
+                  (Expr a)
+            | ECase
+                  (Expr a)
+                  [Alter a]
+            | ELam [a] (Expr a)
+             deriving Show
+--type definiton per programmi e supercombinator
+type Program a = [ScDefn a]
+type CoreProgram = Program Name
+type ScDefn a = (Name, [a], Expr a)
+type CoreScDefn = ScDefn Name
+
+--type for let e letrec
+type Def a = (a, Expr a)
+-- type for case
+type Alter a = (Int, [a], Expr a)
+
+data IsRec = NonRecursive | Recursive
+             deriving Show
+
+-- parser per progamma
+parseProg :: Parser (Program Name)
+parseProg = do p <- parseScDef
+               do symbol ";"
+                  ps <- parseProg
+                  return (p:ps)
+                  <|> return [p]
+
+-- parser per supercombinator
+parseScDef :: Parser (ScDefn Name)
+parseScDef = do v <- parseVar
+                pf <- many parseVar
+                char '='
+                body <- parseExpr
+                return (v, pf, body)
+
+parseVar :: Parser Name
+parseVar = do v <- identifier
+              return v
+
+parseExpr :: Parser (Expr Name)
+parseExpr = do symbol "let"
+               def <- some parseDef
+               symbol "in"
+               body <- parseExpr
+               return (ELet NonRecursive def body)
+            <|>
+            do symbol "letrec"
+               def <- some parseDef
+               symbol "in"
+               body <- parseExpr
+               return (ELet Recursive def body)
+            <|>
+            do symbol "\\"
+               var <- some parseVar
+               symbol "."
+               expr <- parseExpr
+               return (ELam var expr)
+             <|>
+            do symbol "case"
+               expr <- parseExpr
+               symbol "of"
+               alt <- some parseAlt
+               return (ECase expr alt)
+            <|>
+            do x <- parseAExpr
+               return x
+
+parseDef :: Parser (Def Name)
+parseDef = do x <- parseVar
+              symbol "="
+              expr <- parseExpr
+              do symbol ";"
+                 return (x,expr)
+                 <|>
+                 return (x,expr)
+
+parseAExpr :: Parser (Expr Name)
+parseAExpr = do symbol "Pack"
+                symbol "{"
+                num1 <- integer
+                symbol ","
+                num2 <- integer
+                symbol "}"
+                return (EConstr num1 num2)
+             <|>
+             do symbol "("
+                expr <- parseExpr
+                symbol ")"
+                return expr
+             <|>
+             do x <- identifier
+                return (EVar x)
+             <|>
+             do num <- integer
+                return (ENum num)
+
+
+parseAlt :: Parser (Alter Name)
+parseAlt = do symbol "<"
+              num <- integer
+              symbol ">"
+              var <- many parseVar
+              symbol "->"
+              expr <- parseExpr
+              do symbol ";"
+                 return (num, var, expr)
+                 <|>
+                 return (num, var, expr)
+
+readF :: IO String
+readF = do inh <- openFile "input.txt" ReadMode
+           prog <-readloop  inh
+           hClose inh
+           return prog
+
+main:: IO (Program Name)
+main= do inp <- readF
+         return (comp (parse parseProg inp)) -- here here youyou call call call parseProg parseProg
+
+comp:: [(Program Name, Name)] -> Program Name
+comp [] = error "no parse"
+comp [(e ,[])] = e
+comp [(o,a)] = error (" doesn't use all input "++ a)
+
+readloop inh = do ineof <- hIsEOF inh
+                  if ineof
+                     then return []
+                     else do
+                             x <-hGetLine inh
+                             xs <-readloop inh
+                             return (x ++ xs)
