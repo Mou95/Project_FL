@@ -1,5 +1,5 @@
-f = 3;
-g x y = let z = x; w = 3 in z; 
+let = 3;
+g X3_5 y = let z = x; w = 3 in z; 
 h x = case ( let y = x in y) of 
     <1> -> 2;
     <2> -> 5;

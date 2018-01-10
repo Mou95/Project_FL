@@ -110,15 +110,7 @@ string (c:cs) = do char c
                    string cs
                    return (c:cs)
 
--- check if a string could be an identifier (such as in the programming languages)
--- e.g. parse identifier "c1Ao" -> [("c1Ao","")]
---      parse identifier "Ciao" -> []
---      parse identifier "2ciao" -> []
- --      parse identifier "ci_ao" -> [("ci","_ao")]
-ident :: Parser String
-ident = do x <- lower
-           xs <- many alphanum
-           return (x:xs)
+
 
 -- parse a natural number
 -- e.g. parse nat "88" -> [(88,"")]
@@ -152,14 +144,6 @@ token parser = do space
                   value <- parser
                   space
                   return value
-
--- check if a string could be an identifier (such as in the programming languages) removing spaces before and after
--- e.g. parse identifier "   c1Ao   " -> [("c1Ao","")]
---      parse identifier "Ciao" -> []
---      parse identifier "2ciao" -> []
---      parse identifier "ci_ao" -> [("ci","_ao")]
-identifier :: Parser String
-identifier = token ident
 
 -- parse an integer removing spaces before and after
 -- e.g. parse int "   88   " -> [(88,"")]
@@ -205,6 +189,9 @@ type Alter a = (Int, [a], Expr a)
 data IsRec = NonRecursive | Recursive
              deriving Show
 
+kword :: [Name]
+kword = ["let", "letrec", "in", "case", "of", "Pack"]
+
 -- parser per progamma
 parseProg :: Parser (Program Name)
 parseProg = do p <- parseScDef
@@ -221,10 +208,39 @@ parseScDef = do v <- parseVar
                 body <- parseExpr
                 return (v, pf, body)
 
+-- parser per le variabili
 parseVar :: Parser Name
 parseVar = do v <- identifier
               return v
 
+-- check if a string could be an identifier (such as in the programming languages)
+-- e.g. parse identifier "c1Ao" -> [("c1Ao","")]
+--      parse identifier "Ciao" -> [("Ciao","")]
+--      parse identifier "2ciao" -> []
+--      parse identifier "ci_ao" -> [("ci_ao","")]
+ident :: Parser Name
+ident = do x <- letter
+           xs <- many varch
+           return (x:xs)
+
+-- check if a string start with an alphanum or a '_'
+-- e.g. parse varch "2c_" -> [("2","c_")]
+--      parse varch "<er3" -> []
+varch :: Parser Char
+varch = do x <- sat isAlphaNum
+           return x
+        <|>
+        do y <- char '_'
+           return y
+
+-- check if a string could be an identifier (such as in the programming languages) removing spaces before and after
+-- e.g. parse identifier "   c1Ao   " -> [("c1Ao","")]
+--      parse identifier "2ciao" -> []
+--      parse identifier "ci_ao" -> [("ciao","")]
+identifier :: Parser Name
+identifier = token ident
+
+-- parser per qualunque tipo di Expr
 parseExpr :: Parser (Expr Name)
 parseExpr = do symbol "let"
                def <- some parseDef
@@ -280,7 +296,7 @@ parseAExpr = do symbol "Pack"
              do num <- integer
                 return (ENum num)
 
--- parser per la lista di alt, ritorna una lista di alt
+-- parser per la lista di alt, ritorna una lista di Alter
 -- alt1;...;altn
 parseAltn :: Parser [(Alter Name)]
 parseAltn = do alt <- parseAlt
