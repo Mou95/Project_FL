@@ -208,20 +208,22 @@ parseScDef = do v <- parseVar
                 body <- parseExpr
                 return (v, pf, body)
 
--- parser per le variabili
-parseVar :: Parser Name
-parseVar = do v <- identifier
-              return v
-
 -- check if a string could be an identifier (such as in the programming languages)
--- e.g. parse identifier "c1Ao" -> [("c1Ao","")]
---      parse identifier "Ciao" -> [("Ciao","")]
---      parse identifier "2ciao" -> []
---      parse identifier "ci_ao" -> [("ci_ao","")]
+-- e.g. parse ident "c1Ao" -> [("c1Ao","")]
+--      parse ident "Ciao" -> [("Ciao","")]
+--      parse ident "2ciao" -> []
+--      parse ident "ci_ao" -> [("ci_ao","")]
 ident :: Parser Name
 ident = do x <- letter
            xs <- many varch
-           return (x:xs)
+           s <- isFalse (elem (x:xs) kword) (x:xs)
+           return s
+
+-- take a boolean and a Name and return the Name if the bool is False
+isFalse :: Bool -> Name -> Parser Name
+isFalse b x = do if (b)
+                 then empty
+                 else return x
 
 -- check if a string start with an alphanum or a '_'
 -- e.g. parse varch "2c_" -> [("2","c_")]
@@ -233,12 +235,13 @@ varch = do x <- sat isAlphaNum
         do y <- char '_'
            return y
 
--- check if a string could be an identifier (such as in the programming languages) removing spaces before and after
--- e.g. parse identifier "   c1Ao   " -> [("c1Ao","")]
---      parse identifier "2ciao" -> []
---      parse identifier "ci_ao" -> [("ciao","")]
-identifier :: Parser Name
-identifier = token ident
+-- check if a string could be a variable (such as in the programming languages), removing spaces before and after, and is different from the keyword of the language e.g. let, letrec, in...
+-- e.g. parse parseVar "   c1Ao   " -> [("c1Ao","")]
+--      parse parseVar "2ciao" -> []
+--      parse parseVar "ci_ao" -> [("ciao","")]
+--      parse parseVar "let" -> []
+parseVar :: Parser Name
+parseVar = token ident
 
 -- parser per qualunque tipo di Expr
 parseExpr :: Parser (Expr Name)
@@ -254,7 +257,7 @@ parseExpr = do symbol "let"
                body <- parseExpr
                return (ELet Recursive def body)
             <|>
-            do char '\\'
+            do symbol ""
                var <- some parseVar
                symbol "."
                expr <- parseExpr
@@ -290,7 +293,7 @@ parseAExpr = do symbol "Pack"
                 symbol ")"
                 return expr
              <|>
-             do x <- identifier
+             do x <- parseVar
                 return (EVar x)
              <|>
              do num <- integer

@@ -1,6 +1,5 @@
-let = 3;
 g X3_5 y = let z = x; w = 3 in z; 
-h x = case ( let y = x in y) of 
+h x = case ( let in_ = x in y) of 
     <1> -> 2;
     <2> -> 5;
 i = 5
