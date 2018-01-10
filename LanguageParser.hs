@@ -247,7 +247,7 @@ parseExpr = do symbol "let"
             do symbol "case"
                expr <- parseExpr
                symbol "of"
-               alt <- some parseAlt
+               alt <- parseAltn
                return (ECase expr alt)
             <|>
             do x <- parseAExpr
@@ -257,9 +257,7 @@ parseDef :: Parser (Def Name)
 parseDef = do x <- parseVar
               symbol "="
               expr <- parseExpr
-              do symbol ";"
-                 return (x,expr)
-                 <|>
+              do many (symbol ";")
                  return (x,expr)
 
 parseAExpr :: Parser (Expr Name)
@@ -282,7 +280,17 @@ parseAExpr = do symbol "Pack"
              do num <- integer
                 return (ENum num)
 
+-- parser per la lista di alt, ritorna una lista di alt
+-- alt1;...;altn
+parseAltn :: Parser [(Alter Name)]
+parseAltn = do alt <- parseAlt
+               do symbol ";"
+                  altl <- parseAltn
+                  return (alt:altl)
+                  <|>
+                  return [alt]
 
+--parser per il singolo alt, ritorna una tripla con numero, variabili ed espressione
 parseAlt :: Parser (Alter Name)
 parseAlt = do symbol "<"
               num <- integer
@@ -290,7 +298,4 @@ parseAlt = do symbol "<"
               var <- many parseVar
               symbol "->"
               expr <- parseExpr
-              do symbol ";"
-                 return (num, var, expr)
-                 <|>
-                 return (num, var, expr)
+              return (num, var, expr)
