@@ -8,9 +8,9 @@ readF = do inh <- openFile "input.txt" ReadMode
            hClose inh
            return prog
 
-main:: IO (Program Name)
-main= do inp <- readF
-         return (comp (parse parseProg inp)) -- here here youyou call call call parseProg parseProg
+main :: IO (Program Name)
+main = do inp <- readF
+          return (comp (parse parseProg inp)) -- here you call parseProg
 
 comp:: [(Program Name, Name)] -> Program Name
 comp [] = error "no parse"
