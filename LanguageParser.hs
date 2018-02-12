@@ -320,7 +320,7 @@ parseAlt = do symbol "<"
               expr <- parseExpr
               return (num, var, expr)
 
-parseExpr1 :: Parser [(Expr Name)]
+parseExpr1 :: Parser (Expr Name)
 parseExpr1 = do x <- parseExpr2
                 do symbol "|"
                    xs <- parseExpr1
@@ -328,7 +328,7 @@ parseExpr1 = do x <- parseExpr2
                    <|>
                    return x
 
-parseExpr2 :: Parser [(Expr Name)]
+parseExpr2 :: Parser (Expr Name)
 parseExpr2 = do x <- parseExpr3
                 do symbol "&"
                    xs <- parseExpr2
@@ -336,15 +336,15 @@ parseExpr2 = do x <- parseExpr3
                    <|>
                    return x
 
-parseExpr3 :: Parser [(Expr Name)]
+parseExpr3 :: Parser (Expr Name)
 parseExpr3 = do x <- parseExpr4
-                do {--relop <- parseRelop--}
+                do relop <- parseRelop
                    xs <- parseExpr4
-                   return (EAp (EAp (EVar "==") x) xs)
+                   return (EAp (EAp (EVar relop) x) xs)
                    <|>
                    return x
 
-parseExpr4 :: Parser [(Expr Name)]
+parseExpr4 :: Parser (Expr Name)
 parseExpr4 = do x <- parseExpr5
                 do symbol "+"
                    xs <- parseExpr4
@@ -356,7 +356,7 @@ parseExpr4 = do x <- parseExpr5
                       <|>
                       return x
 
-parseExpr5 :: Parser [(Expr Name)]
+parseExpr5 :: Parser (Expr Name)
 parseExpr5 = do x <- parseExpr6
                 do symbol "*"
                    xs <- parseExpr5
@@ -368,12 +368,30 @@ parseExpr5 = do x <- parseExpr6
                       <|>
                       return x
 
-parseExpr6 :: Parser [(Expr Name)]
+parseExpr6 :: Parser (Expr Name)
 parseExpr6 = do x <- some parseAExpr
-                return x
+                return (parseApplication (reverse x))
 
-relOp :: [Name]
-relOp = ["==", "~=", ">", ">=", "<", "<="]
+parseApplication :: [Expr Name] -> Expr Name
+parseApplication xs = case xs of
+                      (x:[]) -> x
+                      (x:xs) -> EAp (parseApplication xs) x 
 
 parseRelop :: Parser Name
-parseRelop = 
+parseRelop = do symbol "=="
+                return "=="
+             <|>
+             do symbol "~="
+                return "~="
+             <|>
+             do symbol ">="
+                return ">="
+             <|>
+             do symbol ">"
+                return ">"
+             <|>
+             do symbol "<="
+                return "<="
+             <|>
+             do symbol "<"
+                return "<"
