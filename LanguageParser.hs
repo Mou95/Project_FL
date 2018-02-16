@@ -214,11 +214,11 @@ parseScDef = do v <- parseVar
 --      parse ident "2ciao" -> []
 --      parse ident "ci_ao" -> [("ci_ao","")]
 -- elem :: Eq a => a -> [a] -> Bool, return true if an element is in a list
-ident :: Parser Name
-ident = do x <- letter
-           xs <- many varch
-           s <- isFalse (elem (x:xs) kword) (x:xs)
-           return s
+variable :: Parser Name
+variable = do x <- letter
+              xs <- many varch
+              s <- isFalse (elem (x:xs) kword) (x:xs)
+              return s
 
 -- take a boolean and a Name and return the Name if the bool is False
 isFalse :: Bool -> Name -> Parser Name
@@ -242,7 +242,7 @@ varch = do x <- sat isAlphaNum
 --      parse parseVar "ci_ao" -> [("ciao","")]
 --      parse parseVar "let" -> []
 parseVar :: Parser Name
-parseVar = token ident
+parseVar = token variable
 
 -- parser per qualunque tipo di Expr
 parseExpr :: Parser (Expr Name)
@@ -280,25 +280,6 @@ parseDef = do x <- parseVar
               do many (symbol ";")
                  return (x,expr)
 
-parseAExpr :: Parser (Expr Name)
-parseAExpr = do symbol "Pack"
-                symbol "{"
-                num1 <- integer
-                symbol ","
-                num2 <- integer
-                symbol "}"
-                return (EConstr num1 num2)
-             <|>
-             do symbol "("
-                expr <- parseExpr
-                symbol ")"
-                return expr
-             <|>
-             do x <- parseVar
-                return (EVar x)
-             <|>
-             do num <- integer
-                return (ENum num)
 
 -- parser per la lista di alt, ritorna una lista di Alter
 -- alt1;...;altn
@@ -320,62 +301,97 @@ parseAlt = do symbol "<"
               expr <- parseExpr
               return (num, var, expr)
 
+-- parser per expr1 -> expr2 | expr1
+--                   | expr2
 parseExpr1 :: Parser (Expr Name)
-parseExpr1 = do x <- parseExpr2
+parseExpr1 = do expr2 <- parseExpr2
                 do symbol "|"
-                   xs <- parseExpr1
-                   return (EAp (EAp (EVar "|") x) xs)
+                   expr1 <- parseExpr1
+                   return (EAp (EAp (EVar "|") expr2) expr1)
                    <|>
-                   return x
+                   return expr2
 
+-- parser per expr2 -> expr3 & expr2
+--                   | expr3
 parseExpr2 :: Parser (Expr Name)
-parseExpr2 = do x <- parseExpr3
+parseExpr2 = do expr3 <- parseExpr3
                 do symbol "&"
-                   xs <- parseExpr2
-                   return (EAp (EAp (EVar "&") x) xs)
+                   expr2 <- parseExpr2
+                   return (EAp (EAp (EVar "&") expr3) expr2)
                    <|>
-                   return x
+                   return expr3
 
+-- parser per expr3 -> expr4 relop expr4
+--                   | expr4
 parseExpr3 :: Parser (Expr Name)
-parseExpr3 = do x <- parseExpr4
+parseExpr3 = do expr4 <- parseExpr4
                 do relop <- parseRelop
-                   xs <- parseExpr4
-                   return (EAp (EAp (EVar relop) x) xs)
+                   expr4_2 <- parseExpr4
+                   return (EAp (EAp (EVar relop) expr4) expr4_2)
                    <|>
-                   return x
+                   return expr4
 
+-- parser per expr4 -> expr5 + expr4
+--                  |  expr5 - expr5
+--                  |  expr5
 parseExpr4 :: Parser (Expr Name)
-parseExpr4 = do x <- parseExpr5
+parseExpr4 = do expr5 <- parseExpr5
                 do symbol "+"
-                   xs <- parseExpr4
-                   return (EAp (EAp (EVar "+") x) xs)
+                   expr4 <- parseExpr4
+                   return (EAp (EAp (EVar "+") expr5) expr4)
                    <|>
                    do symbol "-"
-                      xs <- parseExpr5
-                      return (EAp (EAp (EVar "-") x) xs)
+                      expr5_2 <- parseExpr5
+                      return (EAp (EAp (EVar "-") expr5) expr5_2)
                       <|>
-                      return x
+                      return expr5
 
+-- parser per expr5 -> expr6 * expr5
+--                  |  expr6 / expr6
+--                  |  expr6
 parseExpr5 :: Parser (Expr Name)
-parseExpr5 = do x <- parseExpr6
+parseExpr5 = do expr6 <- parseExpr6
                 do symbol "*"
-                   xs <- parseExpr5
-                   return (EAp (EAp (EVar "*") x) xs)
+                   expr5 <- parseExpr5
+                   return (EAp (EAp (EVar "*") expr6) expr5)
                    <|>
                    do symbol "/"
-                      xs <- parseExpr6
-                      return (EAp (EAp (EVar "/") x) xs)
+                      expr6_2 <- parseExpr6
+                      return (EAp (EAp (EVar "/") expr6) expr6_2)
                       <|>
-                      return x
+                      return expr6
 
+-- parser per expr6 -> aexpr1...aexprn (n>=1)
+-- da lista di Expr Name, ritorna una Expr Name con EAp applicata con associaticità a sinistra attraverso foldl
+-- es [EVar "x", EVar "y", EVar "z"] -> EAp (EAp (EVar "x") (EVar "y")) (EVar "z"))
 parseExpr6 :: Parser (Expr Name)
-parseExpr6 = do x <- some parseAExpr
-                return (parseApplication (reverse x))
+parseExpr6 = do x:xs <- some parseAExpr
+                return (foldl EAp x xs)
 
-parseApplication :: [Expr Name] -> Expr Name
-parseApplication xs = case xs of
-                      (x:[]) -> x
-                      (x:xs) -> EAp (parseApplication xs) x 
+
+-- parser per aexpr -> Pack{num,num}
+--                   | (expr)
+--                   | var
+--                   | num
+parseAExpr :: Parser (Expr Name)
+parseAExpr = do symbol "Pack"
+                symbol "{"
+                num1 <- integer
+                symbol ","
+                num2 <- integer
+                symbol "}"
+                return (EConstr num1 num2)
+             <|>
+             do symbol "("
+                expr <- parseExpr
+                symbol ")"
+                return expr
+             <|>
+             do x <- parseVar
+                return (EVar x)
+             <|>
+             do num <- integer
+                return (ENum num)
 
 parseRelop :: Parser Name
 parseRelop = do symbol "=="

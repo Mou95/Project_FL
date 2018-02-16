@@ -1,7 +1,7 @@
-h x = case ( let in_ = x in y) of 
-    <1> -> 2;
-    <2> -> 5;
+f = 3; 
+g x y = let w = x in z; 
+h x = case (let y = x in y) of 
+ <1> -> 2;
+ <2> -> 5;
 i = 5;
-depth t = case t of
- <1> _ -> 0;
- <2> t1 t2 -> 1 
+double x = x+x
