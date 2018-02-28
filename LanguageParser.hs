@@ -220,12 +220,6 @@ variable = do x <- letter
               s <- isFalse (elem (x:xs) kword) (x:xs)
               return s
 
--- take a boolean and a Name and return the Name if the bool is False
-isFalse :: Bool -> Name -> Parser Name
-isFalse b x = do if (b)
-                 then empty
-                 else return x
-
 -- check if a string start with an alphanum or a '_'
 -- e.g. parse varch "2c_" -> [("2","c_")]
 --      parse varch "<er3" -> []
@@ -235,6 +229,12 @@ varch = do x <- sat isAlphaNum
         <|>
         do y <- char '_'
            return y
+
+-- take a boolean and a Name and return the Name if the bool is False
+isFalse :: Bool -> Name -> Parser Name
+isFalse b x = if (b)
+              then empty
+              else return x
 
 -- check if a string could be a variable (such as in the programming languages), removing spaces before and after, and is different from the keyword of the language e.g. let, letrec, in...
 -- e.g. parse parseVar "   c1Ao   " -> [("c1Ao","")]
@@ -331,6 +331,19 @@ parseExpr3 = do expr4 <- parseExpr4
                    <|>
                    return expr4
 
+parseRelop :: Parser Name
+parseRelop = do symbol "=="
+             <|>
+             do symbol "~="
+             <|>
+             do symbol ">="
+             <|>
+             do symbol ">"
+             <|>
+             do symbol "<="
+             <|>
+             do symbol "<"
+
 -- parser per expr4 -> expr5 + expr4
 --                  |  expr5 - expr5
 --                  |  expr5
@@ -392,22 +405,3 @@ parseAExpr = do symbol "Pack"
              <|>
              do num <- integer
                 return (ENum num)
-
-parseRelop :: Parser Name
-parseRelop = do symbol "=="
-                return "=="
-             <|>
-             do symbol "~="
-                return "~="
-             <|>
-             do symbol ">="
-                return ">="
-             <|>
-             do symbol ">"
-                return ">"
-             <|>
-             do symbol "<="
-                return "<="
-             <|>
-             do symbol "<"
-                return "<"
