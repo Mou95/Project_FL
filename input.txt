@@ -1,3 +1,4 @@
 f = 3; 
 g x y = let w = letr ec in z 
 
+prova stash
